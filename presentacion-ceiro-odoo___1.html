@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tekuno · Constructora CEIRO — Implementación de Odoo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ==========================================================================
+   Lienzo fijo de 1920 x 1080 que se escala completo a la pantalla.
+   Todos los tamaños están en px de ese lienzo, pensados para proyección.
+   ========================================================================== */
+:root{
+  --ink:#22282B; --ink-2:#4A545A; --ink-3:#7C868C;
+  --concrete:#ECEBE7; --concrete-2:#DDDBD4; --line:#C9C6BE; --white:#FFFFFF;
+  --orange:#E2571F; --orange-soft:#F2B895; --orange-pale:#F6D3C0;
+  --teal:#2E7B7F; --teal-deep:#1B4E52; --teal-pale:#DCEAEA; --grey-bar:#9AA3A6;
+  --cond:'Barlow Condensed','Arial Narrow','Helvetica Neue',Arial,sans-serif;
+  --sans:'Barlow','Helvetica Neue',Arial,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;}
+html,body{margin:0;height:100%;background:#131719;overflow:hidden;}
+body{font-family:var(--sans);}
+h1,h2,h3{margin:0;font-family:var(--cond);font-weight:600;line-height:1;}
+p{margin:0;}
+ul,ol{margin:0;padding:0;list-style:none;}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;padding:0;}
+:focus-visible{outline:3px solid var(--orange);outline-offset:4px;}
+
+#stage{
+  position:absolute;left:50%;top:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%);transform-origin:center center;
+  overflow:hidden;background:var(--concrete);color:var(--ink);
+  font-size:30px;line-height:1.4;
+}
+
+/* ---------- diapositivas ---------- */
+.slide{
+  position:absolute;left:0;top:0;width:1920px;height:1016px;
+  padding:88px 128px 56px;display:flex;flex-direction:column;
+  background:var(--concrete);
+  opacity:0;visibility:hidden;transition:opacity .45s ease, visibility 0s linear .45s;
+}
+.slide.current{opacity:1;visibility:visible;transition:opacity .45s ease;}
+.slide.dark{background:var(--ink);color:var(--concrete);}
+.slide.teal{background:linear-gradient(148deg,#1B4E52 0%,#16383B 60%,#10282B 100%);color:var(--white);}
+
+.eyebrow{font-family:var(--cond);font-size:32px;font-weight:500;letter-spacing:.03em;color:var(--teal);margin-bottom:14px;}
+.dark .eyebrow{color:#7FBDB9;}
+h2{font-size:78px;max-width:30ch;}
+.lead{margin-top:24px;font-size:34px;color:var(--ink-2);max-width:58ch;}
+.body{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:safe center;}
+.head + .body{margin-top:32px;}
+
+/* ---------- revelado por pasos ---------- */
+[data-f]{opacity:0;transform:translateY(30px);transition:opacity .55s ease, transform .6s cubic-bezier(.2,.7,.2,1);}
+[data-f].in{opacity:1;transform:none;}
+
+/* ---------- decoración de marca ---------- */
+.rings{position:absolute;right:-170px;top:170px;width:980px;pointer-events:none;}
+
+/* ---------- 1 · portada ---------- */
+.brand{display:flex;align-items:center;gap:18px;}
+.brand svg{width:64px;height:64px;}
+.brand span{font-family:var(--cond);font-weight:600;font-size:42px;letter-spacing:.14em;}
+.cover h1{font-size:112px;max-width:17ch;line-height:.98;}
+.cover .lead{color:rgba(255,255,255,.78);font-size:38px;max-width:40ch;}
+.cover .meta{display:flex;gap:72px;border-top:2px solid rgba(255,255,255,.22);padding-top:28px;font-family:var(--cond);font-size:32px;color:rgba(255,255,255,.75);position:relative;}
+
+/* ---------- 2 · frase ---------- */
+.statement{font-family:var(--cond);font-weight:500;font-size:108px;line-height:1.02;max-width:15ch;}
+.source{margin-top:44px;font-size:34px;color:rgba(236,235,231,.6);max-width:48ch;}
+
+/* ---------- 3 · preguntas ---------- */
+.qgrid{display:grid;grid-template-columns:680px 1fr;gap:90px;flex:1;align-items:center;}
+.qgrid h2{font-size:72px;}
+.qs li{display:grid;grid-template-columns:80px 1fr;padding:24px 0;border-bottom:2px solid var(--line);}
+.qs .i{font-family:var(--cond);font-size:32px;color:var(--orange);padding-top:8px;}
+.qs .q{font-family:var(--cond);font-size:52px;font-weight:600;line-height:1.1;transition:color .3s ease;}
+.qs .w{grid-column:2;font-size:31px;color:var(--ink-2);max-height:0;opacity:0;overflow:hidden;transition:max-height .5s ease, opacity .4s ease, margin .4s ease;}
+.qs li.active .w{max-height:180px;opacity:1;margin-top:10px;}
+.qs li.past .q{color:var(--ink-3);}
+
+/* ---------- 4 · qué cambia ---------- */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:80px;}
+.panel{border-top:8px solid var(--ink-3);padding-top:30px;}
+.panel.move{border-color:var(--orange);}
+.panel h3{font-size:62px;}
+.panel .sub{font-size:30px;color:var(--ink-3);margin:6px 0 22px;}
+.panel li{font-size:38px;padding:14px 0;border-bottom:2px solid var(--line);}
+.panel li:last-child{border-bottom:none;}
+
+/* ---------- 5 · flujo ---------- */
+.fgrid{display:grid;grid-template-columns:minmax(0,1fr) 620px;gap:90px;flex:1;min-height:0;align-items:center;}
+.fgrid h2{font-size:76px;}
+.track{display:flex;flex-direction:column;gap:8px;}
+.st{display:grid;grid-template-columns:64px 1fr;align-items:center;background:var(--white);border:3px solid var(--line);padding:13px 24px;text-align:left;
+    transition:background .3s ease,border-color .3s ease,color .3s ease,transform .3s ease;}
+.st .n{font-family:var(--cond);font-size:28px;color:var(--ink-3);}
+.st .t{font-family:var(--cond);font-size:38px;font-weight:600;line-height:1.05;}
+.st.done{background:var(--teal-pale);border-color:var(--teal);}
+.st.done .n{color:var(--teal-deep);}
+.st.on{background:var(--ink);border-color:var(--ink);color:var(--white);transform:translateX(-18px);}
+.st.on .n{color:var(--orange);}
+.fdesc{margin-top:44px;min-height:300px;background:var(--white);border-left:10px solid var(--orange);padding:34px 44px;}
+.fdesc h3{font-size:58px;margin-bottom:12px;}
+.fdesc p{font-size:34px;color:var(--ink-2);}
+
+/* ---------- 6 · bloques ---------- */
+.blocks{display:grid;grid-template-columns:repeat(3,1fr);gap:36px;}
+.block{background:var(--white);border:2px solid var(--line);border-top:8px solid var(--teal-deep);padding:34px 36px;display:flex;flex-direction:column;min-height:560px;}
+.block.b2{border-top-color:var(--teal);}
+.block.b3{border-top-color:var(--orange);}
+.block .tag{display:flex;justify-content:space-between;font-family:var(--cond);font-size:30px;color:var(--ink-3);padding-bottom:14px;margin-bottom:18px;border-bottom:2px solid var(--line);}
+.block .tag b{color:var(--ink);font-weight:600;}
+.block h3{font-size:54px;margin-bottom:14px;}
+.block .gets{font-size:29px;color:var(--ink-2);}
+.block .out{margin-top:auto;padding-top:20px;border-top:2px dashed var(--line);font-family:var(--cond);font-size:44px;font-weight:600;color:var(--orange);}
+.detail-btn{margin-top:18px;align-self:flex-start;font-family:var(--cond);font-size:28px;color:var(--ink-2);border-bottom:2px solid var(--line);padding-bottom:3px;}
+.detail-btn:hover{color:var(--orange);border-color:var(--orange);}
+
+/* ---------- 7 · calendario ---------- */
+.months{display:grid;grid-template-columns:repeat(10,1fr);gap:6px;margin-bottom:14px;font-family:var(--cond);font-size:28px;color:var(--ink-3);text-align:center;}
+.grow-row{display:grid;grid-template-columns:repeat(10,1fr);gap:6px;margin-bottom:14px;}
+.gbar{height:80px;display:flex;align-items:center;padding:0 30px;font-family:var(--cond);font-size:38px;font-weight:500;color:var(--white);white-space:nowrap;}
+.gbar.f1{background:var(--teal-deep);} .gbar.f2{background:var(--teal);} .gbar.amp{background:var(--orange);}
+.gbar[data-f]{transform:none;clip-path:inset(0 100% 0 0);transition:clip-path .8s cubic-bezier(.2,.7,.2,1), opacity .2s ease;}
+.gbar[data-f].in{clip-path:inset(0 0 0 0);}
+.gl{display:flex;gap:60px;margin-top:26px;padding-top:24px;border-top:2px solid var(--line);}
+.gi{display:flex;align-items:center;gap:16px;font-family:var(--cond);font-size:40px;font-weight:500;}
+.gi .dot{width:22px;height:22px;border-radius:50%;background:var(--orange);}
+.gi .when{color:var(--ink-3);}
+.gnote{margin-top:20px;font-size:29px;color:var(--ink-2);max-width:64ch;}
+
+/* ---------- 8 · método ---------- */
+.stages{display:grid;grid-template-columns:repeat(5,1fr);gap:30px;}
+.stage{border-top:6px solid var(--line);padding-top:22px;transition:border-color .5s ease;}
+.stage.in{border-color:var(--orange);}
+.stage .n{font-family:var(--cond);font-size:80px;font-weight:600;color:var(--orange);line-height:1;margin-bottom:10px;}
+.stage h3{font-size:44px;margin-bottom:10px;}
+.stage p{font-size:28px;color:var(--ink-2);}
+.roles{display:grid;grid-template-columns:1fr 1fr;gap:80px;margin-top:56px;padding-top:36px;border-top:2px solid var(--line);}
+.roles h3{font-size:46px;margin-bottom:10px;}
+.roles p{font-size:30px;color:var(--ink-2);}
+
+/* ---------- 9 · exclusiones ---------- */
+.excl{display:flex;flex-wrap:wrap;gap:20px;max-width:1500px;}
+.excl li{background:var(--white);border:2px solid var(--line);padding:18px 32px;font-family:var(--cond);font-size:44px;font-weight:500;color:var(--ink-2);
+         opacity:0;transform:translateY(18px);transition:opacity .45s ease, transform .45s ease;}
+.excl.in li{opacity:1;transform:none;}
+.excl.in li:nth-child(2){transition-delay:.08s}.excl.in li:nth-child(3){transition-delay:.16s}
+.excl.in li:nth-child(4){transition-delay:.24s}.excl.in li:nth-child(5){transition-delay:.32s}
+.excl.in li:nth-child(6){transition-delay:.40s}.excl.in li:nth-child(7){transition-delay:.48s}
+.excl[data-f]{transform:none;}
+.xnote{margin-top:48px;font-size:34px;color:var(--ink-2);max-width:60ch;}
+
+/* ---------- 10 · dos números ---------- */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:96px;}
+.big{border-top:8px solid var(--ink);padding-top:28px;}
+.big.rec{border-color:var(--teal);}
+.big .lbl{font-family:var(--cond);font-size:44px;color:var(--ink-2);}
+.big .amt{font-family:var(--cond);font-size:172px;font-weight:600;line-height:.95;margin-top:10px;font-variant-numeric:tabular-nums;}
+.big .unit{font-family:var(--cond);font-size:34px;color:var(--ink-3);margin-top:10px;}
+.big .note{font-size:30px;color:var(--ink-2);margin-top:22px;max-width:30ch;}
+.tstrip{margin-top:60px;padding-top:30px;border-top:2px solid var(--line);display:flex;align-items:baseline;gap:30px;flex-wrap:wrap;}
+.tstrip .k{font-family:var(--cond);font-size:40px;color:var(--ink-2);}
+.tstrip .v{font-family:var(--cond);font-size:92px;font-weight:600;color:var(--orange);font-variant-numeric:tabular-nums;line-height:1;}
+.tstrip .w{font-size:26px;color:var(--ink-3);max-width:34ch;}
+
+/* ---------- 11 · desglose ---------- */
+table.money{width:100%;border-collapse:collapse;font-size:32px;font-variant-numeric:tabular-nums;}
+table.money th{font-family:var(--cond);font-weight:500;font-size:30px;color:var(--ink-3);text-align:left;padding:0 12px 14px;border-bottom:4px solid var(--ink);}
+table.money td{padding:14px 12px;border-bottom:2px solid var(--line);}
+table.money .n{text-align:right;white-space:nowrap;}
+table.money .type{display:block;font-size:24px;color:var(--ink-3);margin-top:2px;}
+table.money tr.sum td{font-weight:600;border-bottom:none;padding:8px 12px;}
+table.money tr.grand td{border-top:4px solid var(--ink);border-bottom:none;font-family:var(--cond);font-size:56px;font-weight:600;padding-top:14px;}
+table.money tr.grand td.n{color:var(--orange);}
+
+/* ---------- 12 · desembolso ---------- */
+.cash{display:flex;align-items:flex-end;gap:12px;height:390px;}
+.mo{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;cursor:pointer;transition:opacity .35s ease;}
+.mo .col{display:flex;flex-direction:column-reverse;width:100%;transform:scaleY(0);transform-origin:bottom;transition:transform .7s cubic-bezier(.2,.7,.2,1);}
+.cash.grown .mo .col{transform:scaleY(1);}
+.mo .col i{display:block;width:100%;}
+.mo .lab{font-family:var(--cond);font-size:28px;color:var(--ink-3);text-align:center;padding-top:10px;}
+.mo.dim{opacity:.22;}
+.mo.hl .lab{color:var(--ink);font-weight:600;}
+.legend{display:flex;gap:40px;margin-top:22px;font-size:25px;color:var(--ink-2);}
+.legend i{display:inline-block;width:30px;height:16px;margin-right:10px;vertical-align:middle;}
+.ro{display:grid;grid-template-columns:auto auto 1fr;gap:56px;align-items:baseline;margin-top:30px;padding-top:28px;border-top:2px solid var(--line);min-height:150px;}
+.ro .when{font-family:var(--cond);font-size:50px;font-weight:600;white-space:nowrap;}
+.ro .amt{font-family:var(--cond);font-size:96px;font-weight:600;color:var(--orange);white-space:nowrap;line-height:1;font-variant-numeric:tabular-nums;}
+.ro .amt small{font-size:36px;color:var(--ink-3);font-weight:500;margin-left:8px;}
+.ro .desc{font-size:30px;color:var(--ink-2);}
+
+/* ---------- 13 · pagos por fase ---------- */
+.pays li{display:grid;grid-template-columns:230px 1fr auto;gap:40px;align-items:center;padding:18px 0;border-bottom:2px solid var(--line);}
+.pays .tagn{font-family:var(--cond);font-size:30px;color:var(--white);background:var(--ink);padding:8px 18px;text-align:center;}
+.pays .tagn.amp{background:var(--orange);}
+.pays .tagn.op{background:var(--teal);}
+.pays .what{font-size:30px;}
+.pays .amt{font-family:var(--cond);font-size:50px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.pays .amt small{font-size:28px;color:var(--ink-3);font-weight:500;margin-left:8px;}
+
+/* ---------- 14 · cierre ---------- */
+.closing h2{font-size:112px;color:var(--white);max-width:14ch;}
+.closing .lead{color:rgba(255,255,255,.78);font-size:38px;}
+.signoff{margin-top:auto;padding-top:30px;border-top:2px solid rgba(255,255,255,.22);font-size:28px;color:rgba(255,255,255,.72);position:relative;}
+.signoff b{display:block;font-family:var(--cond);font-size:44px;font-weight:600;color:var(--white);}
+
+/* ---------- barra inferior ---------- */
+.rail{position:absolute;left:0;right:0;bottom:0;height:64px;background:var(--ink);color:rgba(236,235,231,.65);
+      display:flex;align-items:center;gap:30px;padding:0 128px;font-family:var(--cond);font-size:25px;z-index:20;}
+.rail .rb{font-weight:600;color:var(--concrete);letter-spacing:.08em;}
+.rail .rb span{color:var(--orange);}
+.rail .rn{min-width:340px;color:var(--concrete);}
+.rail .ticks{flex:1;display:flex;gap:6px;align-items:center;}
+.rail .tick{flex:1;height:5px;background:rgba(236,235,231,.2);cursor:pointer;}
+.rail .tick.done{background:rgba(236,235,231,.5);}
+.rail .tick.on{background:var(--orange);}
+.rail .ct{font-variant-numeric:tabular-nums;min-width:80px;text-align:right;}
+.rail .nav{display:flex;gap:6px;}
+.rail .nav button{width:52px;height:44px;border:2px solid rgba(236,235,231,.3);color:var(--concrete);font-size:26px;line-height:1;}
+.rail .nav button:hover{border-color:var(--orange);color:var(--orange);}
+
+/* ---------- panel de detalle ---------- */
+.drawer{position:absolute;inset:0;background:rgba(19,23,25,.62);z-index:40;display:none;justify-content:flex-end;}
+.drawer.open{display:flex;}
+.drawer .sheet{width:900px;height:100%;background:var(--white);border-left:10px solid var(--orange);padding:60px 64px;overflow-y:auto;}
+.drawer .close{font-family:var(--cond);font-size:30px;color:var(--ink-2);margin-bottom:28px;}
+.drawer .close:hover{color:var(--orange);}
+.drawer h3{font-size:62px;}
+.drawer .cap{font-size:26px;color:var(--ink-3);margin:8px 0 22px;}
+.drawer li{font-size:27px;padding:11px 0;border-bottom:2px solid var(--concrete-2);}
+
+@media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important;}}
+</style>
+</head>
+<body>
+
+<div id="stage">
+
+  <!-- 1 · PORTADA -->
+  <section class="slide teal cover" data-name="Portada">
+    <svg class="rings" viewBox="0 0 800 560" aria-hidden="true">
+      <circle cx="290" cy="280" r="240" fill="none" stroke="rgba(255,255,255,.09)" stroke-width="46"/>
+      <circle cx="510" cy="280" r="240" fill="none" stroke="rgba(226,87,31,.42)" stroke-width="46"/>
+    </svg>
+    <div class="brand">
+      <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <circle cx="16" cy="20" r="11" stroke="#FFFFFF" stroke-width="3.4"/>
+        <circle cx="27" cy="20" r="11" stroke="#E2571F" stroke-width="3.4"/>
+      </svg>
+      <span>TEKUNO</span>
+    </div>
+    <div class="body" style="position:relative;">
+      <h1>Una sola plataforma para la operación de CEIRO</h1>
+      <p class="lead">Implementación de Odoo en las plantas de asfalto y en la gestión de compras de obra.</p>
+    </div>
+    <div class="meta">
+      <span>Constructora CEIRO</span>
+      <span>Puebla, 2 de septiembre de 2026</span>
+      <span>Propuesta técnica y económica</span>
+    </div>
+  </section>
+
+  <!-- 2 · FRASE -->
+  <section class="slide dark" data-name="El punto de partida">
+    <div class="body">
+      <p class="statement">Hoy, el inventario de áridos, AC-20 y combustible se calcula por estimación visual.</p>
+      <p class="source" data-f="1">Así quedó documentado en el levantamiento: no existe un sistema activo de inventario y los conteos se hacen mediante estimaciones visuales.</p>
+    </div>
+  </section>
+
+  <!-- 3 · PREGUNTAS -->
+  <section class="slide" data-name="El punto de partida" data-role="questions">
+    <div class="qgrid">
+      <div>
+        <p class="eyebrow">El punto de partida</p>
+        <h2>Cinco preguntas que hoy son difíciles de responder</h2>
+      </div>
+      <ol class="qs">
+        <li data-f="1"><span class="i">01</span><span class="q">¿Cuánto material hay?</span><span class="w">Sin inventario por entradas y consumos no hay saldos confiables ni alertas de mínimo.</span></li>
+        <li data-f="2"><span class="i">02</span><span class="q">¿Cuánto cuesta producir un m³?</span><span class="w">Es uno de los reportes críticos que definió CEIRO, y requiere registrar el consumo real contra la fórmula.</span></li>
+        <li data-f="3"><span class="i">03</span><span class="q">¿Quién autorizó esta compra?</span><span class="w">La Política de Compras define autorizaciones y comparativos. El objetivo es que cada compra deje evidencia consultable.</span></li>
+        <li data-f="4"><span class="i">04</span><span class="q">¿Dónde está la información?</span><span class="w">La operación se reparte entre ASFALTOMX, para el despacho, y Fusión, para lo contable.</span></li>
+        <li data-f="5"><span class="i">05</span><span class="q">¿Qué margen deja cada obra?</span><span class="w">Requiere centros de costo y cuentas analíticas por obra y por contrato, que se configuran en la Fase 2.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 4 · QUÉ CAMBIA Y QUÉ NO -->
+  <section class="slide" data-name="Qué cambia y qué no">
+    <div class="head">
+      <p class="eyebrow">Antes de hablar de alcance</p>
+      <h2>Odoo no sustituye lo que ya funciona</h2>
+    </div>
+    <div class="body">
+      <div class="split">
+        <div class="panel" data-f="1">
+          <h3>Se queda en ASFALTOMX</h3>
+          <p class="sub">Sigue operando igual que hoy</p>
+          <ul><li>Ticket de despacho</li><li>Folio</li><li>Comprobante</li></ul>
+        </div>
+        <div class="panel move" data-f="2">
+          <h3>Pasa a Odoo</h3>
+          <p class="sub">Lo que hoy no tiene sistema</p>
+          <ul><li>Orden de producción y fórmulas</li><li>Consumo real y costo por m³</li><li>Inventarios y compras de planta</li><li>Ciclo de compras de obra</li></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 · FLUJO -->
+  <section class="slide" data-name="El ciclo completo" data-role="flow" data-steps="9">
+    <div class="fgrid">
+      <div>
+        <p class="eyebrow">El resultado</p>
+        <h2>Un solo hilo, de la necesidad al gasto</h2>
+        <div class="fdesc" id="fdesc"></div>
+      </div>
+      <div class="track" id="track"></div>
+    </div>
+  </section>
+
+  <!-- 6 · BLOQUES -->
+  <section class="slide" data-name="Alcance">
+    <div class="head">
+      <p class="eyebrow">Alcance</p>
+      <h2>Tres bloques, uno después del otro</h2>
+    </div>
+    <div class="body">
+      <div class="blocks">
+        <div class="block" data-f="1">
+          <div class="tag"><span>Fase 1 · Plantas</span><b>Meses 1–3</b></div>
+          <h3>Control de la operación</h3>
+          <p class="gets">El Batán, ADM y MARGUI Almecatla: compras, inventarios, manufactura y fórmulas.</p>
+          <p class="out">Costo directo por m³</p>
+          <button class="detail-btn" data-detail="f1">Ver el detalle funcional</button>
+        </div>
+        <div class="block b2" data-f="2">
+          <div class="tag"><span>Fase 2 · Plantas</span><b>Meses 4–5</b></div>
+          <h3>La capa financiera</h3>
+          <p class="gets">Contabilidad general, catálogo contable, centros de costo y pedidos de venta por contrato.</p>
+          <p class="out">Margen real por contrato</p>
+          <button class="detail-btn" data-detail="f2">Ver el detalle funcional</button>
+        </div>
+        <div class="block b3" data-f="3">
+          <div class="tag"><span>Constructora</span><b>Meses 6–10</b></div>
+          <h3>Las compras de obra</h3>
+          <p class="gets">Requisiciones, matriz de autorizaciones, comparativos, subcontratos, caja chica y proveedores.</p>
+          <p class="out">Trazabilidad por obra</p>
+          <button class="detail-btn" data-detail="amp">Ver el detalle funcional</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 · CALENDARIO -->
+  <section class="slide" data-name="Calendario">
+    <div class="head">
+      <p class="eyebrow">Calendario</p>
+      <h2>Diez meses, tres fases que se cierran por separado</h2>
+    </div>
+    <div class="body">
+      <div class="months"><span>M1</span><span>M2</span><span>M3</span><span>M4</span><span>M5</span><span>M6</span><span>M7</span><span>M8</span><span>M9</span><span>M10</span></div>
+      <div class="grow-row"><div class="gbar f1" data-f="1" style="grid-column:1 / span 3;">Fase 1 · Plantas</div></div>
+      <div class="grow-row"><div class="gbar f2" data-f="2" style="grid-column:4 / span 2;">Fase 2 · Plantas</div></div>
+      <div class="grow-row"><div class="gbar amp" data-f="3" style="grid-column:6 / span 5;">Gestión de compras · Constructora</div></div>
+      <div data-f="4">
+        <div class="gl">
+          <span class="gi"><span class="dot"></span>Fase 1 concluida <span class="when">mes 3</span></span>
+          <span class="gi"><span class="dot"></span>Fase 2 concluida <span class="when">mes 5</span></span>
+          <span class="gi"><span class="dot"></span>Compras concluida <span class="when">mes 10</span></span>
+        </div>
+        <p class="gnote">Cada fase concluye con su propia aceptación formal. Trabajar en serie concentra a un equipo a la vez, y lo aprendido en plantas se aprovecha en constructora.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 · MÉTODO -->
+  <section class="slide" data-name="Método">
+    <div class="head">
+      <p class="eyebrow">Método</p>
+      <h2>Cada bloque recorre las mismas cinco etapas</h2>
+    </div>
+    <div class="body">
+      <div class="stages">
+        <div class="stage" data-f="1"><p class="n">1</p><h3>Inicio</h3><p>Kickoff, responsables y plan de trabajo.</p></div>
+        <div class="stage" data-f="2"><p class="n">2</p><h3>Análisis</h3><p>Levantamiento funcional y diseño de la solución.</p></div>
+        <div class="stage" data-f="3"><p class="n">3</p><h3>Configuración</h3><p>Parametrización, módulos y desarrollos identificados.</p></div>
+        <div class="stage" data-f="4"><p class="n">4</p><h3>Pruebas</h3><p>Pruebas funcionales, capacitación y ajustes.</p></div>
+        <div class="stage" data-f="5"><p class="n">5</p><h3>Puesta en marcha</h3><p>Acompañamiento y estabilización.</p></div>
+      </div>
+      <div class="roles" data-f="6">
+        <div><h3>Tekuno aporta</h3><p>Dirección del proyecto, consultoría funcional, configuración, capacitación y soporte en la puesta en marcha.</p></div>
+        <div><h3>CEIRO aporta</h3><p>Definición de procesos, usuarios clave disponibles, validación de entregables y carga de información. El calendario depende de ello.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 · EXCLUSIONES -->
+  <section class="slide" data-name="Exclusiones">
+    <div class="head">
+      <p class="eyebrow">Alcance</p>
+      <h2>Lo que esta propuesta no incluye</h2>
+    </div>
+    <div class="body">
+      <ul class="excl" data-f="1">
+        <li>Interfaces con básculas</li><li>Interfaces con laboratorios</li><li>Nómina</li>
+        <li>Recursos humanos</li><li>Aplicaciones móviles</li><li>Inteligencia de negocios avanzada</li>
+        <li>Integraciones con terceros no identificadas</li>
+      </ul>
+      <p class="xnote" data-f="2">Lo que se detecte durante el levantamiento y no esté en el alcance se evalúa técnicamente y, en su caso, se cotiza por control de cambios.</p>
+    </div>
+  </section>
+
+  <!-- 10 · INVERSIÓN -->
+  <section class="slide" data-name="Inversión">
+    <div class="head">
+      <p class="eyebrow">Inversión</p>
+      <h2>Son dos cosas distintas</h2>
+    </div>
+    <div class="body">
+      <div class="two">
+        <div class="big" data-f="1">
+          <p class="lbl">El proyecto</p>
+          <p class="amt"><span class="count" data-to="769650.79" data-money="1">$769,651</span></p>
+          <p class="unit">con IVA · se paga una vez</p>
+          <p class="note">La implementación de los tres bloques, en pagos asociados a cada fase.</p>
+        </div>
+        <div class="big rec" data-f="2">
+          <p class="lbl">La operación anual</p>
+          <p class="amt"><span class="count" data-to="108628.85" data-money="1">$108,629</span></p>
+          <p class="unit">con IVA · vigencia de un año</p>
+          <p class="note">Licencia de 6 usuarios y póliza de soporte. Es lo que se renueva; el proyecto no se vuelve a pagar.</p>
+        </div>
+      </div>
+      <div class="tstrip" data-f="3">
+        <span class="k">Total del primer año</span>
+        <span class="v"><span class="count" data-to="878279.64" data-money="1" data-dec="2">$878,279.64</span></span>
+        <span class="w">Ochocientos setenta y ocho mil doscientos setenta y nueve pesos 64/100 MXN</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 · DESGLOSE -->
+  <section class="slide" data-name="Inversión">
+    <div class="head">
+      <p class="eyebrow">Inversión</p>
+      <h2>De dónde sale cada peso</h2>
+    </div>
+    <div class="body">
+      <table class="money">
+        <thead><tr><th>Concepto</th><th class="n">Importe sin IVA</th></tr></thead>
+        <tbody>
+          <tr data-f="1"><td>Implementación · Plantas de Asfalto<span class="type">Se paga una vez</span></td><td class="n">$349,206.35</td></tr>
+          <tr data-f="2"><td>Implementación · Gestión de Compras Constructora<span class="type">Se paga una vez</span></td><td class="n">$314,285.71</td></tr>
+          <tr data-f="3"><td>Licenciamiento Odoo SH · 6 usuarios, 1 worker, ramificación de pruebas<span class="type">Anual</span></td><td class="n">$61,706.67</td></tr>
+          <tr data-f="4"><td>Póliza de soporte y mantenimiento<span class="type">Anual, en 12 mensualidades</span></td><td class="n">$31,938.89</td></tr>
+          <tr class="sum" data-f="5"><td>Subtotal</td><td class="n">$757,137.62</td></tr>
+          <tr class="sum" data-f="5"><td>IVA</td><td class="n">$121,142.02</td></tr>
+          <tr class="grand" data-f="5"><td>Total</td><td class="n">$878,279.64</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 12 · DESEMBOLSO -->
+  <section class="slide" data-name="Inversión" data-role="cash" data-steps="4">
+    <div class="head">
+      <p class="eyebrow">Inversión</p>
+      <h2>Cuándo sale el dinero</h2>
+    </div>
+    <div class="body">
+      <div class="cash" id="cash"></div>
+      <div class="legend">
+        <span><i style="background:var(--teal-deep)"></i>Implementación plantas</span>
+        <span><i style="background:var(--orange)"></i>Implementación constructora</span>
+        <span><i style="background:var(--orange-soft)"></i>Licencia anual</span>
+        <span><i style="background:var(--grey-bar)"></i>Póliza de soporte</span>
+      </div>
+      <div class="ro" id="ro"></div>
+    </div>
+  </section>
+
+  <!-- 13 · PAGOS POR FASE -->
+  <section class="slide" data-name="Condiciones">
+    <div class="head">
+      <p class="eyebrow">Condiciones</p>
+      <h2>Cada pago corresponde a una fase</h2>
+    </div>
+    <div class="body">
+      <ul class="pays">
+        <li data-f="1"><span class="tagn">Pagos 1–3</span><span class="what">Fase 1 · Arquitectura multiplanta, compras, inventarios, manufactura, BoMs y dashboards</span><span class="amt">$81,015.87<small>c/u</small></span></li>
+        <li data-f="2"><span class="tagn">Pagos 4–5</span><span class="what">Fase 2 · Contabilidad, catálogo contable, centros de costo y rentabilidad por contrato</span><span class="amt">$81,015.87<small>c/u</small></span></li>
+        <li data-f="3"><span class="tagn amp">Pagos 1–5</span><span class="what">Constructora · Gestión de compras de obra</span><span class="amt">$72,914.29<small>c/u</small></span></li>
+        <li data-f="4"><span class="tagn op">Pago único</span><span class="what">Licencia Odoo SH, 6 usuarios, un año</span><span class="amt">$71,579.73</span></li>
+        <li data-f="5"><span class="tagn op">12 meses</span><span class="what">Póliza de soporte y mantenimiento</span><span class="amt">$3,087.43<small>al mes</small></span></li>
+      </ul>
+      <p class="lead" data-f="5" style="font-size:28px;margin-top:22px;">Importes con IVA. Cada fase concluye cuando los procesos están configurados, los usuarios capacitados, las pruebas aprobadas, la información validada y se emite la aceptación formal.</p>
+    </div>
+  </section>
+
+  <!-- 14 · CIERRE -->
+  <section class="slide teal closing" data-name="Siguiente paso">
+    <svg class="rings" viewBox="0 0 800 560" aria-hidden="true">
+      <circle cx="290" cy="280" r="240" fill="none" stroke="rgba(255,255,255,.09)" stroke-width="46"/>
+      <circle cx="510" cy="280" r="240" fill="none" stroke="rgba(226,87,31,.42)" stroke-width="46"/>
+    </svg>
+    <div class="body" style="position:relative;">
+      <h2>El siguiente paso es la sesión de inicio</h2>
+      <p class="lead">Con la fecha de arranque confirmada, agendamos el kickoff y el levantamiento funcional de la Fase 1.</p>
+    </div>
+    <div class="signoff">
+      <b>Edgar Carcaño Ramírez</b>
+      Dirección Desarrollo de Negocio · Tekuno S.A. de C.V. · Blvd. Vía Atlixcayotl 5208, Torre 1, Piso 15, San Andrés Cholula, Puebla · 222 688 69 79 · www.tekuno.io
+    </div>
+  </section>
+
+  <!-- barra inferior -->
+  <div class="rail">
+    <span class="rb">TEK<span>UNO</span></span>
+    <span class="rn" id="rn"></span>
+    <span class="ticks" id="ticks"></span>
+    <span class="ct" id="ct"></span>
+    <span class="nav"><button id="prevBtn" aria-label="Anterior">‹</button><button id="nextBtn" aria-label="Siguiente">›</button></span>
+  </div>
+
+  <!-- detalle funcional -->
+  <div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Detalle funcional">
+    <div class="sheet">
+      <button class="close" id="drawerClose">Cerrar ✕</button>
+      <h3 id="dTitle"></h3>
+      <p class="cap" id="dCap"></p>
+      <ul id="dList"></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+const REDUCE = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = id => document.getElementById(id);
+const stage = $('stage');
+
+/* ---------- escala del lienzo ---------- */
+function fit(){
+  const s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+  stage.style.transform = 'translate(-50%,-50%) scale(' + s + ')';
+}
+window.addEventListener('resize', fit);
+fit();
+
+/* ---------- contador animado ---------- */
+function countUp(el){
+  const to = Number(el.dataset.to), dec = Number(el.dataset.dec || 0);
+  const pre = el.dataset.pre || '', suf = el.dataset.suf || '', money = el.dataset.money === '1';
+  const fmt = v => pre + (money ? '$' : '') + v.toLocaleString('es-MX',{minimumFractionDigits:dec,maximumFractionDigits:dec}) + suf;
+  if (REDUCE){ el.textContent = fmt(to); return; }
+  const t0 = performance.now(), D = 1100;
+  const tick = now => {
+    const k = Math.min(1, (now - t0) / D), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = fmt(k < 1 ? to * e : to);
+    if (k < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+/* ---------- datos: flujo ---------- */
+const FLOW = [
+  ['Obra', 'Cada operación nace ligada a una obra o proyecto, con su centro de costo y su responsable.'],
+  ['Requisición', 'El residente registra qué necesita, cuánto, para cuándo y dónde se entrega, con la especificación técnica.'],
+  ['Cotización', 'Compras registra las propuestas de los proveedores: precio, crédito y tiempo de entrega.'],
+  ['Comparativo', 'Las alternativas se comparan lado a lado; queda registrado el proveedor recomendado y el seleccionado.'],
+  ['Autorización', 'La matriz DOA dirige la solicitud al responsable que corresponde según monto y tipo de compra.'],
+  ['Orden de compra', 'Se genera la OC con folio, ligada a la obra, al centro de costo y a sus condiciones comerciales.'],
+  ['Recepción', 'Se registra la entrada contra la OC y se identifica si fue conforme o no conforme.'],
+  ['Expediente', 'Requisición, cotizaciones, comparativo, autorizaciones, OC, CFDI y evidencias en un solo expediente.'],
+  ['Centro de costo', 'El gasto queda asignado a la obra y a su cuenta analítica, listo para medir el margen.']
+];
+const track = $('track');
+FLOW.forEach((f, i) => {
+  const b = document.createElement('button');
+  b.className = 'st';
+  b.innerHTML = '<span class="n">' + String(i+1).padStart(2,'0') + '</span><span class="t">' + f[0] + '</span>';
+  b.addEventListener('click', () => { step = i + 1; apply(); });
+  track.appendChild(b);
+});
+
+/* ---------- datos: desembolso ---------- */
+const COL = { pl:'#1B4E52', co:'#E2571F', li:'#F2B895', po:'#9AA3A6' };
+const MONTHS = [];
+for (let m = 1; m <= 17; m++){
+  const p = [];
+  if (m <= 5) p.push(['pl', 81015.87]);
+  if (m >= 6 && m <= 10) p.push(['co', 72914.29]);
+  if (m === 6) p.push(['li', 71579.73]);
+  if (m >= 6) p.push(['po', 3087.43]);
+  let d;
+  if (m <= 5) d = 'Plantas de asfalto, pago ' + m + ' de 5.';
+  else if (m === 6) d = 'Licencia anual, primer mes de póliza y primer pago de constructora.';
+  else if (m <= 10) d = 'Constructora, pago ' + (m-5) + ' de 5, más la póliza de soporte.';
+  else d = 'Póliza de soporte, mes ' + (m-5) + ' de 12.';
+  MONTHS.push({ m, p, total: p.reduce((s,x) => s + x[1], 0), d });
+}
+const MAXM = Math.max(...MONTHS.map(x => x.total));
+const cash = $('cash');
+MONTHS.forEach(mo => {
+  const el = document.createElement('button');
+  el.className = 'mo';
+  el.dataset.m = mo.m;
+  const col = '<span class="col" style="height:' + (mo.total / MAXM * 100).toFixed(2) + '%">' +
+    mo.p.map(x => '<i style="background:' + COL[x[0]] + ';height:' + (x[1] / mo.total * 100).toFixed(2) + '%"></i>').join('') + '</span>';
+  el.innerHTML = col + '<span class="lab">' + mo.m + '</span>';
+  el.addEventListener('click', () => showMonth(mo.m));
+  cash.appendChild(el);
+});
+const money2 = n => '$' + n.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+const GROUPS = {
+  1: { r:[1,5],   when:'Meses 1–5',   amt:81015.87,  per:true,  desc:'Implementación de plantas de asfalto: Fase 1 y Fase 2.' },
+  2: { r:[6,6],   when:'Mes 6',       amt:147581.45, per:false, desc:'Licencia anual, primer mes de póliza y primer pago de constructora. Es el mes de mayor desembolso.' },
+  3: { r:[7,10],  when:'Meses 7–10',  amt:76001.72,  per:true,  desc:'Implementación de compras de constructora, más la póliza de soporte.' },
+  4: { r:[11,17], when:'Meses 11–17', amt:3087.43,   per:true,  desc:'Solo queda la póliza de soporte.' }
+};
+function paintCash(lo, hi){
+  cash.querySelectorAll('.mo').forEach(el => {
+    const m = Number(el.dataset.m);
+    const inside = lo === null || (m >= lo && m <= hi);
+    el.classList.toggle('dim', !inside);
+    el.classList.toggle('hl', lo !== null && inside);
+  });
+}
+function showMonth(m){
+  const mo = MONTHS[m-1];
+  paintCash(m, m);
+  $('ro').innerHTML = '<span class="when">Mes ' + m + '</span><span class="amt">' + money2(mo.total) + '</span><span class="desc">' + mo.d + '</span>';
+}
+
+/* ---------- motor de pasos ---------- */
+const slides = Array.from(document.querySelectorAll('.slide'));
+let idx = 0, step = 0;
+
+function maxStep(sl){
+  if (sl.dataset.steps) return Number(sl.dataset.steps);
+  let m = 0;
+  sl.querySelectorAll('[data-f]').forEach(e => { m = Math.max(m, Number(e.dataset.f)); });
+  return m;
+}
+
+const HOOKS = {
+  questions(sl, s){
+    sl.querySelectorAll('.qs li').forEach(li => {
+      const f = Number(li.dataset.f);
+      li.classList.toggle('active', f === s);
+      li.classList.toggle('past', f < s);
+    });
+  },
+  flow(sl, s){
+    track.querySelectorAll('.st').forEach((b, i) => {
+      b.classList.toggle('on', i + 1 === s);
+      b.classList.toggle('done', i + 1 < s);
+    });
+    $('fdesc').innerHTML = s === 0
+      ? '<h3>Nueve pasos conectados</h3><p>Avance para recorrer cada eslabón. En cualquier momento se puede saber quién pidió, quién autorizó y contra qué obra se cargó el gasto.</p>'
+      : '<h3>' + FLOW[s-1][0] + '</h3><p>' + FLOW[s-1][1] + '</p>';
+  },
+  cash(sl, s){
+    if (s === 0){
+      paintCash(null, null);
+      $('ro').innerHTML = '<span class="when">17 meses</span><span class="amt"><small style="margin:0">del primer pago al último</small></span><span class="desc">Avance para recorrer cada tramo, o toque cualquier mes.</span>';
+      return;
+    }
+    const g = GROUPS[s];
+    paintCash(g.r[0], g.r[1]);
+    $('ro').innerHTML = '<span class="when">' + g.when + '</span><span class="amt">' + money2(g.amt) + (g.per ? '<small>al mes</small>' : '') + '</span><span class="desc">' + g.desc + '</span>';
+  }
+};
+
+function apply(){
+  const sl = slides[idx];
+  sl.querySelectorAll('[data-f]').forEach(e => {
+    const on = Number(e.dataset.f) <= step;
+    if (on && !e.classList.contains('in')){
+      e.classList.add('in');
+      e.querySelectorAll('.count').forEach(countUp);
+    } else if (!on){
+      e.classList.remove('in');
+    }
+  });
+  if (HOOKS[sl.dataset.role]) HOOKS[sl.dataset.role](sl, step);
+  rail();
+}
+
+function show(i, s){
+  idx = Math.max(0, Math.min(slides.length - 1, i));
+  step = s || 0;
+  slides.forEach((sl, k) => sl.classList.toggle('current', k === idx));
+  slides[idx].querySelectorAll('[data-f]').forEach(e => e.classList.remove('in'));
+  if (slides[idx].dataset.role === 'cash'){
+    cash.classList.remove('grown');
+    setTimeout(() => cash.classList.add('grown'), 60);
+  }
+  apply();
+}
+function next(){ if (step < maxStep(slides[idx])){ step++; apply(); } else if (idx < slides.length - 1) show(idx + 1, 0); }
+function prev(){ if (step > 0){ step--; apply(); } else if (idx > 0) show(idx - 1, maxStep(slides[idx - 1])); }
+
+/* ---------- barra inferior ---------- */
+const ticks = $('ticks');
+slides.forEach((_, i) => {
+  const t = document.createElement('span');
+  t.className = 'tick';
+  t.title = slides[i].dataset.name;
+  t.addEventListener('click', () => show(i, 0));
+  ticks.appendChild(t);
+});
+function rail(){
+  Array.from(ticks.children).forEach((t, i) => { t.classList.toggle('on', i === idx); t.classList.toggle('done', i < idx); });
+  $('rn').textContent = slides[idx].dataset.name;
+  $('ct').textContent = (idx + 1) + ' / ' + slides.length;
+}
+$('prevBtn').addEventListener('click', prev);
+$('nextBtn').addEventListener('click', next);
+
+/* ---------- detalle funcional ---------- */
+const DETAILS = {
+  f1: { t:'Fase 1 · Plantas de asfalto', c:'Alcance funcional tal como está en la propuesta.', i:[
+    'Predios operativos y almacén Almecatla con ubicaciones internas',
+    'Almacén independiente para El Batán, con inventario y compras separadas',
+    'Centros de trabajo para ADM, MARGUI y El Batán',
+    'Usuarios operativos, administrativos y de consulta, con permisos por responsabilidad',
+    'Proveedores de materia prima e insumos, por predio',
+    'Solicitudes y órdenes de compra por predio, con flujo de aprobación',
+    'Precios de referencia y condiciones comerciales por proveedor',
+    'Recepción contra orden de compra y comparación solicitado, comprado y recibido',
+    'Gasto real contra presupuesto e historial de compras',
+    'Entradas por compra, salidas por consumo y movimientos internos',
+    'Lotes para AC-20 y para áridos al cambiar el banco de extracción',
+    'Inventario inicial, conteos cíclicos y reabastecimiento por centro de trabajo',
+    'Alertas de stock mínimo y días de stock por predio',
+    'Órdenes de producción con BoM, apertura, cierre y m³ producidos',
+    'Consumo real contra BoM y combustible como costo directo',
+    'Paros, reanudación, rechazo, scrap y reproceso',
+    'BoMs de las fórmulas vigentes, con versiones y control de activación',
+    'Dashboards: producción por centro de trabajo, costeo AVCO, costo por m³, días de stock, OC pendientes y gasto contra presupuesto'
+  ]},
+  f2: { t:'Fase 2 · Capa financiera', c:'Alcance funcional tal como está en la propuesta.', i:[
+    'Configuración de empresa y parámetros contables',
+    'Diarios contables e impuestos',
+    'Cuentas por cobrar y cuentas por pagar',
+    'Facturas de proveedor y de cliente cuando aplique',
+    'Pagos, conciliación operativa y saldos iniciales',
+    'Movimientos contables ligados a predios, obras o contratos',
+    'Clientes y contratos activos como pedidos de venta',
+    'Número de licitación, volumen adjudicado y precio unitario',
+    'Catálogo de cuentas y centros de costo por predio y tipo de negocio',
+    'Cuentas analíticas por obra y por contrato',
+    'Rentabilidad por contrato y margen por obra',
+    'Ingresos contra costos y desviaciones de margen',
+    'Vista ejecutiva y exportación de reportes'
+  ]},
+  amp: { t:'Constructora · Gestión de compras', c:'Trece bloques de proceso, tal como están en la propuesta.', i:[
+    'Obras y proyectos con responsables y centro de costo',
+    'Requisiciones digitales con obra, especificación, cantidad, fecha y lugar de entrega',
+    'Flujo de revisión y aprobación de requisiciones',
+    'Cotizaciones con precio, crédito y tiempo de entrega',
+    'Comparativo de proveedores, recomendado y seleccionado',
+    'Matriz DOA: caja chica, compra operativa, estándar, mayor, estratégica y subcontratos',
+    'Autorización por monto y por tipo de compra, con flujo escalonado',
+    'Orden de compra con folio, ligada a obra y centro de costo',
+    'Recepción conforme y no conforme',
+    'Contrataciones estratégicas y subcontratos, con anticipos y pagos por entregable',
+    'Servicios profesionales y despachos externos',
+    'Caja chica: fondos, responsables, comprobaciones y reposiciones',
+    'Proveedores con información fiscal, documentación legal y vigencias',
+    'Evaluación de desempeño de proveedores',
+    'Condiciones comerciales, días de crédito y anticipos',
+    'Expediente digital de cada compra, con CFDI y evidencias',
+    'Compras urgentes y excepciones, con justificación y regularización',
+    'KPIs: ciclo de compra, compras por obra y proveedor, OC pendientes y gasto por obra'
+  ]}
+};
+const drawer = $('drawer');
+function openDrawer(k){
+  const d = DETAILS[k]; if (!d) return;
+  $('dTitle').textContent = d.t; $('dCap').textContent = d.c;
+  $('dList').innerHTML = d.i.map(x => '<li>' + x + '</li>').join('');
+  drawer.classList.add('open'); $('drawerClose').focus();
+}
+function closeDrawer(){ drawer.classList.remove('open'); }
+document.querySelectorAll('[data-detail]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); openDrawer(b.dataset.detail); }));
+$('drawerClose').addEventListener('click', closeDrawer);
+drawer.addEventListener('click', e => { if (e.target === drawer) closeDrawer(); });
+
+/* ---------- teclado ---------- */
+document.addEventListener('keydown', e => {
+  if (drawer.classList.contains('open')){ if (e.key === 'Escape') closeDrawer(); return; }
+  const k = e.key;
+  if (k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'Enter'){ e.preventDefault(); next(); }
+  else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'Backspace'){ e.preventDefault(); prev(); }
+  else if (k === 'Home') show(0, 0);
+  else if (k === 'End') show(slides.length - 1, 0);
+  else if (k.toLowerCase() === 'f'){ document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); }
+});
+
+show(0, 0);
+</script>
+</body>
+</html>
